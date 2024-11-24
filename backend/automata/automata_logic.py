@@ -13,10 +13,10 @@ class DFA:
         self.Type = 'DFA'
 
     def transition_to_state_with_input(self, input_value):
-        if (self.current_state, input_value) not in self.transition_function.keys():
-            self.current_state = None
+        if((self.current_state, input_value) in self.transition_function.keys()):
+            self.current_state = self.transition_function[(self.current_state, input_value)]
             return
-        self.current_state = self.transition_function[(self.current_state, input_value)]
+        self.current_state = None
 
     def in_accept_state(self):
         return self.current_state in self.accept_states
@@ -25,6 +25,7 @@ class DFA:
         self.current_state = self.start_state
 
     def run_with_input_list(self, input_list):
+        print(self.__dict__)
         self.go_to_initial_state()
         for inp in input_list:
             self.transition_to_state_with_input(inp)
@@ -80,9 +81,10 @@ class DFA:
         return simp_DFA
 
     def convert_to_RG(self):
+        print(self.__dict__)
         new_RG = RG([], list(self.alphabet.copy()), self.start_state, {})
         temp_alphabet = self.alphabet.copy()
-        temp_alphabet.add(EPSILON)
+        temp_alphabet.append(EPSILON)
 
         for state in self.states:
             if (state not in new_RG.variables and 
@@ -91,26 +93,22 @@ class DFA:
                 new_RG.variables.append(state)
 
         for state in new_RG.variables:
+            if state in self.accept_states:         
+                new_RG.production_rules[state] = [(EPSILON)]
             for alphabet in temp_alphabet:
                 if (state, alphabet) in self.transition_function.keys():
-                    for trans_state in self.transition_function[(state, alphabet)]:
-                        if trans_state not in self.accept_states:
-                            if state not in new_RG.production_rules.keys():
-                                new_RG.production_rules[state] = [(alphabet + trans_state).strip(EPSILON)]
-                            else:
-                                new_RG.production_rules[state].append((alphabet + trans_state).strip(EPSILON))
-                        else:
-                            if state not in new_RG.production_rules.keys():
-                                new_RG.production_rules[state] = [alphabet]
-                            else:
-                                new_RG.production_rules[state].append(alphabet)
+                    if state not in new_RG.production_rules.keys():
+                        new_RG.production_rules[state] = [(alphabet + self.transition_function[(state, alphabet)]).strip(EPSILON)]
+                    else:
+                        new_RG.production_rules[state].append((alphabet + self.transition_function[(state, alphabet)]).strip(EPSILON))
 
         if new_RG.start_symbol in self.accept_states:
             new_RG.production_rules['Start'] = [new_RG.start_symbol, EPSILON]
             new_RG.start_symbol = 'Start'
 
         new_RG.Type = new_RG.check_type()
-        return new_RG
+
+        return new_RG.to_dict()
 
 class NFA(DFA):
     def __init__(self, states, alphabet, transition_function, start_state, accept_states, current_state):
@@ -131,7 +129,7 @@ class NFA(DFA):
         self.current_state = {self.start_state}
 
     def convert_to_DFA(self):
-        new_DFA = DFA([], list(self.alphabet.copy()), {}, '[' + ','.join(sorted(self.start_state)) + ']', [], '[' + ','.join(sorted(self.start_state)) + ']')
+        new_DFA = DFA([], list(self.alphabet.copy()), {}, self.start_state, [], '[' + ','.join(sorted(self.start_state)) + ']')
         subset = set()
         new_state_set = []
 
@@ -145,7 +143,7 @@ class NFA(DFA):
 
         for state_set in new_state_set:
             new_DFA.states.append('[' + ','.join(state_set) + ']')
-            if set(state_set) & self.accept_states != set():
+            if set(state_set) & set(self.accept_states) != set():
                 new_DFA.accept_states.append('[' + ','.join(state_set) + ']')
 
         for state_set in new_state_set:
@@ -153,14 +151,15 @@ class NFA(DFA):
                 transition = set()
                 for state in state_set:
                     if (state, alphabet) in self.transition_function.keys():
-                        transition |= self.transition_function[(state, alphabet)]
+                        transition |= set(self.transition_function[(state, alphabet)])
                 if transition:
                     new_DFA.transition_function[('[' + ','.join(state_set) + ']', alphabet)] = '[' + ','.join(sorted(transition)) + ']'
 
         return new_DFA
 
     def convert_to_RG(self):
-        return super().convert_to_RG()
+        tempDFA = self.convert_to_DFA()
+        return tempDFA.convert_to_RG()
 
 class NFA_epsilon(NFA):
     def __init__(self, states, alphabet, transition_function, start_state, accept_states, current_state):
@@ -169,7 +168,7 @@ class NFA_epsilon(NFA):
 
     def epsilon_closure(self, state):
         epsilon_closure = {state}
-        for ecs in epsilon_closure:
+        for ecs in list(epsilon_closure):
             if (ecs, EPSILON) in self.transition_function.keys():
                 epsilon_closure.update(self.transition_function[(ecs, EPSILON)])
         return epsilon_closure
@@ -192,8 +191,8 @@ class NFA_epsilon(NFA):
             return self
         
         new_NFA = NFA(self.states.copy(), self.alphabet.copy(), {}, self.epsilon_closure(self.start_state), self.accept_states.copy(), self.epsilon_closure(self.start_state))
-        if self.epsilon_closure(self.start_state) & self.accept_states != set():
-            new_NFA.accept_states.add(self.start_state)
+        if self.epsilon_closure(self.start_state) & set(self.accept_states) != set():
+            new_NFA.accept_states.append(self.start_state)
 
         for state in self.states:
             for alphabet in self.alphabet:
@@ -202,7 +201,7 @@ class NFA_epsilon(NFA):
                 Closure_transition = set()
                 for closure in self.epsilon_closure(state):
                     if (closure, alphabet) in self.transition_function.keys():
-                        Closure_transition |= self.transition_function[(closure, alphabet)]
+                        Closure_transition |= set(self.transition_function[(closure, alphabet)])
                 for closure_trans in Closure_transition:
                     Transition_output |= self.epsilon_closure(closure_trans)
                 if Transition_output:
@@ -214,7 +213,9 @@ class NFA_epsilon(NFA):
         return self.convert_to_NFA().convert_to_DFA()
 
     def convert_to_RG(self):
-        return super().convert_to_RG()
+        temp = self.convert_to_NFA()
+        temp = temp.convert_to_DFA()
+        return temp.convert_to_RG()
 
 class RG:
     def __init__(self, variables, terminal_symbols, start_symbol, production_rules):
@@ -242,3 +243,13 @@ class RG:
         if not isRl_R and isLl_R:
             return "Left Regular Grammar"
         return "Context-Free Grammar"
+
+    def to_dict(self):
+        """Convert RG object to a serializable dictionary."""
+        return {
+            "variables": self.variables,
+            "terminal_symbols": self.terminal_symbols,
+            "start_symbol": self.start_symbol,
+            "production_rules": self.production_rules,
+            "Type": self.check_type()
+        }

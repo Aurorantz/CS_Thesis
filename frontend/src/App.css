@@ -1,0 +1,49 @@
+/* Ensure the body and html take full height */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Main App container that will take the full height of the screen */
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Full viewport height */
+  padding: 0 20px; /* Add padding on the left and right of the entire app */
+  justify-content: space-between; /* Push footer to the bottom */
+}
+
+/* Center the content area */
+.content {
+  display: flex;
+  justify-content: center; /* Horizontally center the content */
+  align-items: center; /* Vertically center the content */
+  flex: 1; /* Takes up the remaining space */
+  padding: 20px;
+  text-align: center; /* Optional: if you want the text to be centered */
+}
+
+/* Optional: If you want to make sure the content is centered properly */
+h1 {
+  font-size: 36px;
+  color: #6C9CEA;
+}
+
+/* App.css */
+
+/* Floating chat button */
+.chat-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: transparent; /* No background color */
+  color: #6C9CEA; /* Icon color */
+  font-size: 50px; /* Increase the size of the Messenger icon */
+  cursor: pointer;
+  transition: color 0.3s; /* Smooth transition for color */
+}
+
+.chat-button:hover {
+  color: #4A83C1; /* Darker color when hovered */
+}
